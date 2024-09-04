@@ -22,13 +22,12 @@ services:
       start_period: 40s
 
   app:
-    image: python:3.10.2-slim-bullseye
+    image: python:alpine3.20
     container_name: app
     volumes:
       - .:/app
     working_dir: /app
     command: sh -c "pip install -r requirements.txt && python create_indices.py && python data_loader.py"
-    # command: sh -c "pip install -r requirements.txt && python data_loader.py"
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -47,8 +46,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-      app:
-        condition: service_started
     networks:
       - elastic
 
