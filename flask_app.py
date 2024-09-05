@@ -35,7 +35,7 @@ from typing import Union
 
 import click
 from flask import (Flask, Blueprint, make_response, request,
-                   send_from_directory, Response, Request)
+                   send_from_directory, Response, Request, jsonify)
 
 from pygeoapi.api import API, APIRequest, apply_gzip
 import pygeoapi.api.coverages as coverages_api
@@ -49,6 +49,7 @@ from pygeoapi.openapi import load_openapi_document
 from pygeoapi.config import get_config
 from pygeoapi.util import get_mimetype, get_api_rules
 # newly added
+import requests
 import uuid
 from datetime import datetime
 
@@ -64,6 +65,10 @@ if CONFIG['server'].get('admin'):
 STATIC_FOLDER = 'static'
 if 'templates' in CONFIG['server']:
     STATIC_FOLDER = CONFIG['server']['templates'].get('static', 'static')
+
+# Elasticsearch configuration
+ELASTICSEARCH_URL = "http://elasticsearch:9200"
+SEQ_INDEX = "seq_index"
 
 APP = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='/static')
 APP.url_map.strict_slashes = API_RULES.strict_slashes
@@ -119,7 +124,6 @@ if (OGC_SCHEMAS_LOCATION is not None and
 
         return send_from_directory(path_, basename_,
                                    mimetype=get_mimetype(basename_))
-
 
 # TODO: inline in execute_from_flask when all views have been refactored
 def get_response(result: tuple):
@@ -269,6 +273,7 @@ def collection_queryables(collection_id=None):
 @BLUEPRINT.route('/collections/<path:collection_id>/items/<path:item_id>',
                  methods=['GET', 'PUT', 'DELETE', 'OPTIONS'],
                  provide_automatic_options=False)
+
 def collection_items(collection_id, item_id=None):
     """
     OGC API collections items endpoint
@@ -278,8 +283,10 @@ def collection_items(collection_id, item_id=None):
 
     :returns: HTTP response
     """
-    # Generate a unique transaction ID
-    transaction_id = uuid.uuid4()
+
+    # Generate uniques checkpoint & transaction ID
+    transactionId = uuid.uuid4()
+    checkpointId = uuid.uuid4()
 
     if item_id is None:
         if request.method == 'GET':  # list items
@@ -316,25 +323,37 @@ def collection_items(collection_id, item_id=None):
                                           skip_valid_check=True)
         else:
             response = execute_from_flask(itemtypes_api.get_collection_item, request,
-                                          collection_id, item_id)
-    # Log the request only if delta_updates is enabled in the config
-    if CONFIG['logging'].get('delta_updates', False):
-        #sent to ES (config in config.yml)
-        # Create the log message
-        log_message = (
-            f"TXID: {transaction_id}\n"
-            f"TIMESTAMP: {datetime.now()}\n"
-            f"FEATURE_COLLECTION_ID: {collection_id}\n"
-            f"FEATURE_ID: {item_id}\n"
-            f"OPERATION: {request.method}\n\n"
-        )
+                                          collection_id, item_id)    
+    
+    # delta updates logging
+    if CONFIG['logging'].get('delta_updates', False) and request.method in ['POST', 'PUT', 'DELETE']:
+        # Create the log message as a JSON object
+        audit = {
+            "TXID": str(transactionId),
+            "TIMESTAMP": datetime.now().isoformat(),
+            "FEATURE_COLLECTION_ID": collection_id,
+            "FEATURE_ID": item_id,
+            "OPERATION": request.method,
+            "CHECKPOINT": str(checkpointId)
+        }
+    
+        # Post the audit to Elasticsearch
+        status_code, response_text = post_audit(audit)
+    
+        # Optionally, handle the response
+        if status_code == 201:
+            print("Log successfully posted to Elasticsearch")
+        else:
+            print(f"Failed to post log to Elasticsearch: {response_text}")
 
-    
-        # Write the log message to the file
-        with open('delta_updates.log', 'a') as f:
-            f.write(log_message)
-    
     return response
+
+# Function to post audit to Elasticsearch
+def post_audit(audit):
+    url = f"{ELASTICSEARCH_URL}/audit/_doc/"
+    headers = {'Content-Type': 'application/json'}
+    response = requests.post(url, json=audit, headers=headers)
+    return response.status_code, response.text
 
 @BLUEPRINT.route('/collections/<path:collection_id>/coverage')
 def collection_coverage(collection_id):
