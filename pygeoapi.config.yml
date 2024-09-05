@@ -34,8 +34,6 @@ server:
     bind:
         host: 0.0.0.0
         port: 80
-    # middleware:
-    #     - module: logging_middleware.LoggingMiddleware
     url: http://localhost:5000
     mimetype: application/json; charset=UTF-8
     encoding: utf-8
@@ -51,6 +49,7 @@ server:
 logging:
     level: INFO
     logfile: pygeoapi.log
+    delta_updates: true
 metadata:
     identification:
         title: pygeoapi default instance

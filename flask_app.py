@@ -281,18 +281,6 @@ def collection_items(collection_id, item_id=None):
     # Generate a unique transaction ID
     transaction_id = uuid.uuid4()
 
-    # option delta enable
-    if True:
-        #sent to ES (config in config.yml)
-        # Create the log message
-        log_message = (
-            f"TXID: {transaction_id}\n"
-            f"TIMESTAMP: {datetime.now()}\n"
-            f"FEATURE_COLLECTION_ID: {collection_id}\n"
-            f"FEATURE_ID: {item_id}\n"
-            f"OPERATION: {request.method}\n\n"
-        )
-
     if item_id is None:
         if request.method == 'GET':  # list items
             response = execute_from_flask(itemtypes_api.get_collection_items,
@@ -329,10 +317,23 @@ def collection_items(collection_id, item_id=None):
         else:
             response = execute_from_flask(itemtypes_api.get_collection_item, request,
                                           collection_id, item_id)
-    # Write the log message to the file
-    with open('delta_updates.log', 'a') as f:
-        f.write(log_message)
+    # Log the request only if delta_updates is enabled in the config
+    if CONFIG['logging'].get('delta_updates', False):
+        #sent to ES (config in config.yml)
+        # Create the log message
+        log_message = (
+            f"TXID: {transaction_id}\n"
+            f"TIMESTAMP: {datetime.now()}\n"
+            f"FEATURE_COLLECTION_ID: {collection_id}\n"
+            f"FEATURE_ID: {item_id}\n"
+            f"OPERATION: {request.method}\n\n"
+        )
 
+    
+        # Write the log message to the file
+        with open('delta_updates.log', 'a') as f:
+            f.write(log_message)
+    
     return response
 
 @BLUEPRINT.route('/collections/<path:collection_id>/coverage')

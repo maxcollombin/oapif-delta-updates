@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
@@ -33,7 +32,7 @@ services:
         condition: service_healthy
     networks:
       - elastic
-
+      
   pygeoapi:
     image: geopython/pygeoapi:latest
     container_name: pygeoapi
