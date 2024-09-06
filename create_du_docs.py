@@ -29,7 +29,7 @@ checkpoint_settings = {
 
 checkpoint_mappings = {
     'properties': {
-        'checkpoint_': { 'type': 'keyword' },
+        'checkpoint': { 'type': 'keyword' },
         'feature_collection_id': { 'type': 'keyword' },
         'seq': { 'type': 'integer' }
     }
@@ -42,36 +42,3 @@ if not es.indices.exists(index='audit'):
 # Create checkpoint index if it doesn't exist
 if not es.indices.exists(index='checkpoint'):
     es.indices.create(index='checkpoint', settings=checkpoint_settings, mappings=checkpoint_mappings)
-
-# Generate sample documents for audit index
-audit_docs = [
-    {
-        "_index": "audit",
-        "_source": {
-            "seq": i,
-            "txid": f"tx{i}",
-            "timestamp_": datetime.now().isoformat(),
-            "feature_collection_id": f"fc{i}",
-            "feature_id": f"f{i}",
-            "operation": "create"
-        }
-    }
-    for i in range(1, 11)  # Generate 10 sample documents
-]
-
-# Generate sample documents for checkpoint index
-checkpoint_docs = [
-    {
-        "_index": "checkpoint",
-        "_source": {
-            "checkpoint_": f"cp{i}",
-            "feature_collection_id": f"fc{i}",
-            "seq": i
-        }
-    }
-    for i in range(1, 11)  # Generate 10 sample documents
-]
-
-# Index the audit and checkpoint documents
-helpers.bulk(es, audit_docs)
-helpers.bulk(es, checkpoint_docs)
