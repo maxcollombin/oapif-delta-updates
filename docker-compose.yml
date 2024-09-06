@@ -26,7 +26,7 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    command: sh -c "pip install -r requirements.txt && python create_indices.py && python data_loader.py"
+    command: sh -c "pip install -r requirements.txt && python create_du_docs.py && python data_loader.py"
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -41,10 +41,11 @@ services:
     volumes:
       - ./pygeoapi.config.yml:/pygeoapi/local.config.yml
       - ./flask_app.py:/pygeoapi/pygeoapi/flask_app.py
-      - ./logs/delta_updates.log:/pygeoapi/delta_updates.log
     depends_on:
       elasticsearch:
         condition: service_healthy
+      app:
+        condition: service_completed_successfully
     networks:
       - elastic
 
