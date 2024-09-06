@@ -18,5 +18,3 @@ rm -rf data/snapshot_cache
 rm -rf data/node.lock
 rm -rf data/nodes
 
-# delete the content of the log
-truncate -s 0 logs/delta_updates.log
