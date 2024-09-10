@@ -35,7 +35,7 @@ from typing import Union
 
 import click
 from flask import (Flask, Blueprint, make_response, request,
-                   send_from_directory, Response, Request, jsonify)
+                   send_from_directory, Response, Request)
 
 from pygeoapi.api import API, APIRequest, apply_gzip
 import pygeoapi.api.coverages as coverages_api
@@ -45,13 +45,15 @@ import pygeoapi.api.maps as maps_api
 import pygeoapi.api.processes as processes_api
 import pygeoapi.api.stac as stac_api
 import pygeoapi.api.tiles as tiles_api
+import pygeoapi.api.newapi as new_api
 from pygeoapi.openapi import load_openapi_document
 from pygeoapi.config import get_config
 from pygeoapi.util import get_mimetype, get_api_rules
-# newly added
+#newly added
 import requests
 import uuid
 from datetime import datetime
+
 
 
 CONFIG = get_config()
@@ -65,10 +67,6 @@ if CONFIG['server'].get('admin'):
 STATIC_FOLDER = 'static'
 if 'templates' in CONFIG['server']:
     STATIC_FOLDER = CONFIG['server']['templates'].get('static', 'static')
-
-# Elasticsearch configuration
-ELASTICSEARCH_URL = "http://elasticsearch:9200"
-SEQ_INDEX = "seq_index"
 
 APP = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='/static')
 APP.url_map.strict_slashes = API_RULES.strict_slashes
@@ -85,7 +83,7 @@ ADMIN_BLUEPRINT = Blueprint('admin', __name__, static_folder=STATIC_FOLDER)
 if CONFIG['server'].get('cors', False):
     try:
         from flask_cors import CORS
-        CORS(APP, CORS_EXPOSE_HEADERS=['*'])
+        CORS(APP)
     except ModuleNotFoundError:
         print('Python package flask-cors required for CORS support')
 
@@ -124,6 +122,7 @@ if (OGC_SCHEMAS_LOCATION is not None and
 
         return send_from_directory(path_, basename_,
                                    mimetype=get_mimetype(basename_))
+
 
 # TODO: inline in execute_from_flask when all views have been refactored
 def get_response(result: tuple):
@@ -241,6 +240,7 @@ def collections(collection_id=None):
 
     return get_response(api_.describe_collections(request, collection_id))
 
+
 @BLUEPRINT.route('/collections/<path:collection_id>/schema')
 def collection_schema(collection_id):
     """
@@ -267,13 +267,27 @@ def collection_queryables(collection_id=None):
     return execute_from_flask(itemtypes_api.get_collection_queryables, request,
                               collection_id)
 
+@BLUEPRINT.route('/collections/<path:collection_id>/changeset')
+def collection_changeset(collection_id=None):
+    """
+    OGC API collections changeset endpoint
+
+    :param collection_id: collection identifier
+
+    :param checkpoint: checkpoint identifier
+
+    :returns: HTTP response
+    """
+
+    return execute_from_flask(itemtypes_api.get_collection_changeset, request, collection_id)
+
+
 @BLUEPRINT.route('/collections/<path:collection_id>/items',
                  methods=['GET', 'POST', 'OPTIONS'],
                  provide_automatic_options=False)
 @BLUEPRINT.route('/collections/<path:collection_id>/items/<path:item_id>',
                  methods=['GET', 'PUT', 'DELETE', 'OPTIONS'],
                  provide_automatic_options=False)
-
 def collection_items(collection_id, item_id=None):
     """
     OGC API collections items endpoint
@@ -290,41 +304,40 @@ def collection_items(collection_id, item_id=None):
 
     if item_id is None:
         if request.method == 'GET':  # list items
-            response = execute_from_flask(itemtypes_api.get_collection_items,
-                                          request, collection_id,
-                                          skip_valid_check=True)
+            return execute_from_flask(itemtypes_api.get_collection_items,
+                                      request, collection_id,
+                                      skip_valid_check=True)
         elif request.method == 'POST':  # filter or manage items
             if request.content_type is not None:
                 if request.content_type == 'application/geo+json':
-                    response = execute_from_flask(
-                        itemtypes_api.manage_collection_item,
-                        request, 'create', collection_id,
-                        skip_valid_check=True)
+                    return execute_from_flask(
+                            itemtypes_api.manage_collection_item,
+                            request, 'create', collection_id,
+                            skip_valid_check=True)
                 else:
-                    response = execute_from_flask(
-                        itemtypes_api.post_collection_items, request,
-                        collection_id, skip_valid_check=True)
+                    return execute_from_flask(
+                            itemtypes_api.post_collection_items, request,
+                            collection_id, skip_valid_check=True)
         elif request.method == 'OPTIONS':
-            response = execute_from_flask(
-                itemtypes_api.manage_collection_item, request, 'options',
-                collection_id, skip_valid_check=True)
+            return execute_from_flask(
+                    itemtypes_api.manage_collection_item, request, 'options',
+                    collection_id, skip_valid_check=True)
+
+    elif request.method == 'DELETE':
+        return execute_from_flask(itemtypes_api.manage_collection_item,
+                                  request, 'delete', collection_id, item_id,
+                                  skip_valid_check=True)
+    elif request.method == 'PUT':
+        return execute_from_flask(itemtypes_api.manage_collection_item,
+                                  request, 'update', collection_id, item_id,
+                                  skip_valid_check=True)
+    elif request.method == 'OPTIONS':
+        return execute_from_flask(itemtypes_api.manage_collection_item,
+                                  request, 'options', collection_id, item_id,
+                                  skip_valid_check=True)
     else:
-        if request.method == 'DELETE':
-            response = execute_from_flask(itemtypes_api.manage_collection_item,
-                                          request, 'delete', collection_id, item_id,
-                                          skip_valid_check=True)
-        elif request.method == 'PUT':
-            response = execute_from_flask(itemtypes_api.manage_collection_item,
-                                          request, 'update', collection_id, item_id,
-                                          skip_valid_check=True)
-        elif request.method == 'OPTIONS':
-            response = execute_from_flask(itemtypes_api.manage_collection_item,
-                                          request, 'options', collection_id, item_id,
-                                          skip_valid_check=True)
-        else:
-            response = execute_from_flask(itemtypes_api.get_collection_item, request,
-                                          collection_id, item_id)    
-    
+        return execute_from_flask(itemtypes_api.get_collection_item, request,
+                                  collection_id, item_id)
     # delta updates logging
     if CONFIG['logging'].get('delta_updates', False) and request.method in ['POST', 'PUT', 'DELETE']:
         # Create the log message as a JSON object
@@ -354,6 +367,7 @@ def post_audit(audit):
     headers = {'Content-Type': 'application/json'}
     response = requests.post(url, json=audit, headers=headers)
     return response.status_code, response.text
+
 
 @BLUEPRINT.route('/collections/<path:collection_id>/coverage')
 def collection_coverage(collection_id):
@@ -560,6 +574,17 @@ def get_collection_edr_query(collection_id, instance_id=None,
         query_type, location_id,
         skip_valid_check=True,
     )
+
+
+@BLUEPRINT.route('/my-function')
+def newapi_my_function():
+    """
+    Custom my function endpoint
+
+    :returns: HTTP response
+    """
+
+    return execute_from_flask(new_api.my_function, request)
 
 
 @BLUEPRINT.route('/stac')
