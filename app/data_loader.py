@@ -4,7 +4,7 @@ from pathlib import Path
 from elasticsearch import Elasticsearch, helpers
 
 # Load configuration from config.yml file
-with open('elastic.config.yml', 'r', encoding='utf-8') as config_file:
+with open('/app/elastic.config.yml', 'r', encoding='utf-8') as config_file:
     config = yaml.safe_load(config_file)
 
 # Initialize Elasticsearch client

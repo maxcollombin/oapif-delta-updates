@@ -288,6 +288,12 @@ def collection_items(collection_id, item_id=None):
     transactionId = uuid.uuid4()
     checkpointId = uuid.uuid4()
 
+    # Extract the JSON payload from the request
+
+    payload = None
+    if request.method in ['POST', 'PUT']:
+        payload = request.json
+
     if item_id is None:
         if request.method == 'GET':  # list items
             response = execute_from_flask(itemtypes_api.get_collection_items,
@@ -334,6 +340,7 @@ def collection_items(collection_id, item_id=None):
             "FEATURE_COLLECTION_ID": collection_id,
             "FEATURE_ID": item_id,
             "OPERATION": request.method,
+            "PAYLOAD": payload,
             "CHECKPOINT": str(checkpointId)
         }
     
