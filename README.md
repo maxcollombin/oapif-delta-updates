@@ -27,5 +27,5 @@ This is a demo implementation of [OGC Testbed-15: Delta Updates (OGC 19-012r1)](
     c. Get the Full `ChangeSet`: `./requests/resultTypeFull.sh`
     d. Get the Full `ChangeSet` restricted to a specific `checkPoint`: `./requests/resultTypeFull.sh <checkPointId>`
 
-> [IMPORTANT!]
+> [!IMPORTANT]
 The `/changeset` path and the `resultType` parameter will be added to the API in a future development stage. For now, the requests are made directly to the database.
