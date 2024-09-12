@@ -68,7 +68,32 @@ if 'templates' in CONFIG['server']:
 
 # Elasticsearch configuration
 ELASTICSEARCH_URL = "http://elasticsearch:9200"
-SEQ_INDEX = "seq_index"
+
+#Function to generate sequence of integers
+
+def sequence():
+    i = 1
+    while True:
+        yield i
+        i += 1
+
+# Sequence initialization
+
+seq = sequence()
+
+# Function to post audit to Elasticsearch
+def post_audit(audit):
+    url = f"{ELASTICSEARCH_URL}/audit/_doc/"
+    headers = {'Content-Type': 'application/json'}
+    response = requests.post(url, json=audit, headers=headers)
+    return response.status_code, response.text
+
+# Function to post checkpoint to Elasticsearch
+def post_checkpoint(checkpoint):
+    url = f"{ELASTICSEARCH_URL}/checkpoint/_doc/"
+    headers = {'Content-Type': 'application/json'}
+    response = requests.post(url, json=checkpoint, headers=headers)
+    return response.status_code, response.text
 
 APP = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='/static')
 APP.url_map.strict_slashes = API_RULES.strict_slashes
@@ -284,13 +309,16 @@ def collection_items(collection_id, item_id=None):
     :returns: HTTP response
     """
 
-    # Generate uniques checkpoint & transaction ID
+    # Generate uniques transaction ID & checkpoint ID
     transactionId = uuid.uuid4()
     checkpointId = uuid.uuid4()
+
+    nextSeq = next(seq)
 
     # Extract the JSON payload from the request
 
     payload = None
+    
     if request.method in ['POST', 'PUT']:
         payload = request.json
 
@@ -331,36 +359,32 @@ def collection_items(collection_id, item_id=None):
             response = execute_from_flask(itemtypes_api.get_collection_item, request,
                                           collection_id, item_id)    
     
-    # delta updates logging
+    # CRUD logging
     if CONFIG['logging'].get('delta_updates', False) and request.method in ['POST', 'PUT', 'DELETE']:
-        # Create the log message as a JSON object
+        # Store the request info in a JSON object
         audit = {
+            "SEQ": nextSeq,
             "TXID": str(transactionId),
             "TIMESTAMP": datetime.now().isoformat(),
             "FEATURE_COLLECTION_ID": collection_id,
             "FEATURE_ID": item_id,
             "OPERATION": request.method,
-            "PAYLOAD": payload,
-            "CHECKPOINT": str(checkpointId)
+            "PAYLOAD": payload
         }
-    
+
+        checkpoint = {
+            "CHECKPOINT": str(checkpointId),
+            "FEATURE_COLLECTION_ID": collection_id,
+            "SEQ": nextSeq
+        }
+
         # Post the audit to Elasticsearch
-        status_code, response_text = post_audit(audit)
-    
-        # Optionally, handle the response
-        if status_code == 201:
-            print("Log successfully posted to Elasticsearch")
-        else:
-            print(f"Failed to post log to Elasticsearch: {response_text}")
+        post_audit(audit)
+
+        # Post the checkpoint to Elasticsearch
+        post_checkpoint(checkpoint)
 
     return response
-
-# Function to post audit to Elasticsearch
-def post_audit(audit):
-    url = f"{ELASTICSEARCH_URL}/audit/_doc/"
-    headers = {'Content-Type': 'application/json'}
-    response = requests.post(url, json=audit, headers=headers)
-    return response.status_code, response.text
 
 @BLUEPRINT.route('/collections/<path:collection_id>/coverage')
 def collection_coverage(collection_id):
