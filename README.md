@@ -1,6 +1,6 @@
-# pygeoapi Delta Updates demo implementation
+# OGC Delta Updates pygeoapi demo implementation
 
-This is a demo implementation of [OGC Testbed-15: Delta Updates (OGC 19-012r1)](https://docs.ogc.org/per/19-012r1.html)  
+This is a demo implementation of [OGC Testbed-15: Delta Updates (OGC 19-012r1)](https://docs.ogc.org/per/19-012r1.html)  with OGC API - Features using [pygeoapi](https://pygeoapi.io/).
 
 ## Start the containers
 
