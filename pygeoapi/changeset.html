@@ -1,0 +1,13 @@
+{% extends "_base.html" %}
+{% block title %}{{ super() }} {{ data['title'] }} {% endblock %}
+{% block crumbs %}{{ super() }}
+/ <a href="{{ data['collections_path'] }}">{% trans %}Collections{% endtrans %}</a>
+/ <a href="{{ data['dataset_path'] }}">{{ data['title'] | truncate( 25 ) }}</a>
+/ <a href="{{ data['dataset_path'] }}/changeset">{% trans %}Changeset{% endtrans %}</a>
+{% endblock %}
+{% block body %}
+    <section id="collection">
+      <h1>{{ data['title'] }}</h1>
+      <p>{{ data['description'] }}</p>
+    </section>
+{% endblock %}

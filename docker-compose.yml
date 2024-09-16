@@ -43,6 +43,13 @@ services:
     volumes:
       - ./pygeoapi/pygeoapi.config.yml:/pygeoapi/local.config.yml
       - ./pygeoapi/flask_app.py:/pygeoapi/pygeoapi/flask_app.py
+      - ./pygeoapi/itemstype.py:/pygeoapi/pygeoapi/api/itemstype.py
+      # - ./pygeoapi/changeset.html:/pygeoapi/templates/collections/changeset.html
+      - ./pygeoapi/entrypoint.sh:/entrypoint.sh
+    environment:
+      - PYGEOAPI_CONFIG=/pygeoapi/local.config.yml
+      - PYGEOAPI_OPENAPI=/pygeoapi/local.openapi.yml
+    entrypoint: /entrypoint.sh
     depends_on:
       elasticsearch:
         condition: service_healthy

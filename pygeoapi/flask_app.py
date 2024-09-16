@@ -292,6 +292,20 @@ def collection_queryables(collection_id=None):
     return execute_from_flask(itemtypes_api.get_collection_queryables, request,
                               collection_id)
 
+@BLUEPRINT.route('/collections/<path:collection_id>/changeset')
+def collection_changeset(collection_id=None):
+    """
+    OGC API collections changeset endpoint
+
+    :param collection_id: collection identifier
+
+    :param checkpoint: checkpoint identifier
+
+    :returns: HTTP response
+    """
+    return ("This is the new changeset endpoint with the optional checkpoint parameter")
+    # return execute_from_flask(itemtypes_api.get_collection_changeset, request, collection_id)
+
 @BLUEPRINT.route('/collections/<path:collection_id>/items',
                  methods=['GET', 'POST', 'OPTIONS'],
                  provide_automatic_options=False)
